@@ -16,8 +16,17 @@ Escribe 'salir' para terminar.
 import ollama
 import chromadb
 
-EMBED_MODEL = "qwen3-embedding"
+# Arquitectura: este script corre en la Raspberry Pi junto con ChromaDB y el
+# corpus. Los embeddings se calculan localmente (Ollama corriendo en la misma
+# Pi); la generación del chat se delega a un servidor remoto con GPU (Ollama
+# corriendo ahí) porque Llama3.2:3B es mucho más lento en la CPU de la Pi.
+GPU_SERVER_HOST = "http://10.111.167.14:11434"  # IP de la máquina con GPU (Windows/RTX A5000) — cambia si se le reasigna otra IP por DHCP
+
+EMBED_MODEL = "qwen3-embedding:4b"
 CHAT_MODEL = "llama3.2:3b"
+
+embed_client = ollama.Client(host="http://localhost:11434")  # Ollama local en la Pi
+chat_client = ollama.Client(host=GPU_SERVER_HOST)  # Ollama remoto en el servidor GPU
 
 # Mismos 5 pares de rasgos y mismo orden que run_bfi.py en PersonaLLM:
 # Extraversion, Agreeableness, Conscientiousness, Neuroticism, Openness.
@@ -36,7 +45,7 @@ coll = db.get_or_create_collection("pipeline_docs")
 
 
 def embed(texts):
-    return [ollama.embed(model=EMBED_MODEL, input=t).embeddings[0] for t in texts]
+    return [embed_client.embed(model=EMBED_MODEL, input=t).embeddings[0] for t in texts]
 
 
 def cargar_corpus(ruta=CORPUS_FILE):
@@ -145,7 +154,7 @@ def responder(mensaje_usuario, persona_str, n_results=2):
         *historial,
     ]
 
-    respuesta = ollama.chat(
+    respuesta = chat_client.chat(
         model=CHAT_MODEL,
         messages=mensajes,
         options={
