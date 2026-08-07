@@ -27,14 +27,15 @@ systemctl restart ollama
 echo "Variables aplicadas:"
 systemctl show ollama --property=Environment
 
-echo "Descargando modelos..."
-ollama pull llama3.2:3b-instruct-fp16
+echo "Descargando embeddings..."
 ollama pull qwen3-embedding:4b
 
-echo "Cuantizando llama3.2 a q4_K_S (mas liviano que q4_K_M; q3_K_M no es un nivel valido para --quantize)..."
-cat > /tmp/Modelfile.quant <<EOF
-FROM llama3.2:3b-instruct-fp16
+echo "Descargando llama3.2 ya cuantizado a q4_K_S (1.9GB, generado y subido a un Release del repo)..."
+curl -L -o /tmp/llama3.2-3b-q4_K_S.gguf \
+  https://github.com/Adr4563/Arquitecture-RAG/releases/download/llama3.2-3b-q4_K_S/llama3.2-3b-q4_K_S.gguf
+
+cat > /tmp/Modelfile.q4s <<EOF
+FROM /tmp/llama3.2-3b-q4_K_S.gguf
 EOF
-ollama create llama3.2:3b-q4s --quantize q4_K_S -f /tmp/Modelfile.quant
-ollama rm llama3.2:3b-instruct-fp16
-rm /tmp/Modelfile.quant
+ollama create llama3.2:3b-q4s -f /tmp/Modelfile.q4s
+rm /tmp/llama3.2-3b-q4_K_S.gguf /tmp/Modelfile.q4s
