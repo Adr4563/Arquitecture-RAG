@@ -28,6 +28,15 @@ CHAT_MODEL = "llama3.2:3b"
 embed_client = ollama.Client(host="http://localhost:11434")  # Ollama local en la Pi
 chat_client = ollama.Client(host=GPU_SERVER_HOST)  # Ollama remoto en el servidor GPU
 
+# Precarga del modelo de chat en el servidor GPU: evita que la primera
+# respuesta real pague el costo de carga en frío (10-30s). keep_alive=-1
+# además evita que Ollama lo descargue de VRAM por inactividad durante la
+# sesión. En el servidor GPU (Windows) conviene además setear las variables
+# de entorno OLLAMA_FLASH_ATTENTION=1 y OLLAMA_KV_CACHE_TYPE=q8_0 antes de
+# arrancar `ollama serve` — no se pueden fijar desde este script porque
+# corren en la otra máquina.
+chat_client.generate(model=CHAT_MODEL, prompt="", keep_alive=-1)
+
 # Mismos 5 pares de rasgos y mismo orden que run_bfi.py en PersonaLLM:
 # Extraversion, Agreeableness, Conscientiousness, Neuroticism, Openness.
 BIG_FIVE_TRAITS = [
@@ -157,11 +166,11 @@ def responder(mensaje_usuario, persona_str, n_results=2):
     respuesta = chat_client.chat(
         model=CHAT_MODEL,
         messages=mensajes,
+        keep_alive=-1,
         options={
             "num_ctx": 2048,
             "num_predict": 300,
             "temperature": 0.3,
-            "keep_alive": "30m",
         },
     )
     texto = _quitar_pregunta_final(respuesta.message.content)
