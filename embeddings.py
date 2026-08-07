@@ -12,7 +12,10 @@ import requests
 EMBED_SERVER_HOST = "http://192.168.1.44:8081"  # embed_server.py — cambia la IP si se reasigna por DHCP
 CORPUS_FILE = "corpus.txt"
 
-_db = chromadb.Client()
+# PersistentClient (no Client() en memoria): index_corpus.py y chat.py son
+# procesos separados — si la DB fuera en memoria, lo que indexa uno no lo
+# veria el otro. Con esto queda guardado en disco, en ./chroma_data.
+_db = chromadb.PersistentClient(path="./chroma_data")
 coll = _db.get_or_create_collection("pipeline_docs")
 
 

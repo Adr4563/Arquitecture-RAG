@@ -9,3 +9,4 @@ env/
 WebScraping/
 models/
 *.gguf
+chroma_data/
