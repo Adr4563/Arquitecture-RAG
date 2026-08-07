@@ -1,5 +1,5 @@
 """
-Chat interactivo con RAG local (Ollama + Chroma) y personalidad Big Five.
+Chat interactivo con RAG local (llama.cpp + Chroma) y personalidad Big Five.
 
 Corre con:
     python chat.py
@@ -11,34 +11,29 @@ personalidad Big Five (OCEAN) siguiendo el enfoque de PersonaLLM
 cada una de las 5 dimensiones y se arma el system prompt como
 "You are a chatbot who is {rasgo1}, {rasgo2}, ... and {rasgo5}."
 Escribe 'salir' para terminar.
+
+Motor: llama.cpp (llama-server), no Ollama. Cada modelo corre como su propio
+proceso `llama-server` sirviendo una API compatible con OpenAI
+(/v1/chat/completions, /v1/embeddings). El modelo queda cargado en memoria
+mientras el proceso viva — no hay concepto de keep_alive/descarga como en
+Ollama, así que no hace falta precargarlo aquí.
 """
 
-import ollama
+import requests
 import chromadb
 
 # Arquitectura: este script corre en la Raspberry Pi junto con ChromaDB y el
-# corpus. Los embeddings se calculan localmente (Ollama corriendo en la misma
-# Pi); la generación del chat se delega a un servidor remoto con GPU (Ollama
-# corriendo ahí) porque Llama3.2:3B es mucho más lento en la CPU de la Pi.
-GPU_SERVER_HOST = "http://10.111.167.14:11434"  # IP de la máquina con GPU (Windows/RTX A5000) — cambia si se le reasigna otra IP por DHCP
+# corpus. Los embeddings se calculan localmente (llama-server corriendo en la
+# misma Pi, modelo de embeddings); la generación del chat se delega a un
+# servidor remoto con GPU (otro llama-server corriendo ahí) porque
+# Llama3.2:3B es mucho más lento en la CPU de la Pi.
+GPU_SERVER_HOST = "http://10.111.167.14:8080"  # llama-server con el modelo de chat (GPU) — cambia la IP si se reasigna por DHCP
+EMBED_SERVER_HOST = "http://localhost:8081"  # llama-server con el modelo de embeddings (local, Pi)
 
-EMBED_MODEL = "qwen3-embedding:4b"
-CHAT_MODEL = "llama3.2:3b-q4s"  # cuantizado a q4_K_S — mas liviano que q4_K_M, CPU al 100%
+CHAT_MODEL = "llama3.2:3b-q4s"  # solo informativo — llama-server ya sirve un unico modelo fijo por instancia
 # Alternativa ultra liviana (380MB) si corres el chat directo en la Pi sin
-# servidor GPU: descarga qwen2.5-0.5b desde el Release del repo, registralo
-# con `ollama create qwen2.5:0.5b -f Modelfile`, y cambia CHAT_MODEL a "qwen2.5:0.5b"
-
-embed_client = ollama.Client(host="http://localhost:11434")  # Ollama local en la Pi
-chat_client = ollama.Client(host=GPU_SERVER_HOST)  # Ollama remoto en el servidor GPU
-
-# Precarga del modelo de chat en el servidor GPU: evita que la primera
-# respuesta real pague el costo de carga en frío (10-30s). keep_alive=-1
-# además evita que Ollama lo descargue de VRAM por inactividad durante la
-# sesión. En el servidor GPU (Windows) conviene además setear las variables
-# de entorno OLLAMA_FLASH_ATTENTION=1 y OLLAMA_KV_CACHE_TYPE=q8_0 antes de
-# arrancar `ollama serve` — no se pueden fijar desde este script porque
-# corren en la otra máquina.
-chat_client.generate(model=CHAT_MODEL, prompt="", keep_alive=-1)
+# servidor GPU: descarga qwen2.5-0.5b desde el Release del repo y levanta
+# llama-server con ese .gguf en vez del de llama3.2.
 
 # Mismos 5 pares de rasgos y mismo orden que run_bfi.py en PersonaLLM:
 # Extraversion, Agreeableness, Conscientiousness, Neuroticism, Openness.
@@ -57,7 +52,14 @@ coll = db.get_or_create_collection("pipeline_docs")
 
 
 def embed(texts):
-    return [embed_client.embed(model=EMBED_MODEL, input=t).embeddings[0] for t in texts]
+    resp = requests.post(
+        f"{EMBED_SERVER_HOST}/v1/embeddings",
+        json={"input": texts},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()["data"]
+    return [item["embedding"] for item in data]
 
 
 def cargar_corpus(ruta=CORPUS_FILE):
@@ -166,17 +168,17 @@ def responder(mensaje_usuario, persona_str, n_results=2):
         *historial,
     ]
 
-    respuesta = chat_client.chat(
-        model=CHAT_MODEL,
-        messages=mensajes,
-        keep_alive=-1,
-        options={
-            "num_ctx": 2048,
-            "num_predict": 300,
+    resp = requests.post(
+        f"{GPU_SERVER_HOST}/v1/chat/completions",
+        json={
+            "messages": mensajes,
             "temperature": 0.3,
+            "max_tokens": 300,
         },
+        timeout=120,
     )
-    texto = _quitar_pregunta_final(respuesta.message.content)
+    resp.raise_for_status()
+    texto = _quitar_pregunta_final(resp.json()["choices"][0]["message"]["content"])
     historial.append({"role": "assistant", "content": texto})
     return texto
 
