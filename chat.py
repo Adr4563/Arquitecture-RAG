@@ -1,5 +1,5 @@
 """
-Chat interactivo con RAG local (llama.cpp + Chroma) y personalidad Big Five.
+Chat interactivo con RAG local y personalidad Big Five.
 
 Corre con:
     python chat.py
@@ -12,27 +12,13 @@ cada una de las 5 dimensiones y se arma el system prompt como
 "You are a chatbot who is {rasgo1}, {rasgo2}, ... and {rasgo5}."
 Escribe 'salir' para terminar.
 
-Motor: llama.cpp (llama-server), no Ollama. Cada modelo corre como su propio
-proceso `llama-server` sirviendo una API compatible con OpenAI
-(/v1/chat/completions, /v1/embeddings). El modelo queda cargado en memoria
-mientras el proceso viva — no hay concepto de keep_alive/descarga como en
-Ollama, así que no hace falta precargarlo aquí.
+Este archivo solo orquesta — no habla directo con ningun servidor. Los
+embeddings/ChromaDB viven en embeddings.py, y el modelo de chat (llama) en
+llama_chat.py. Cada uno corre en su propia maquina, por separado.
 """
 
-import requests
-import chromadb
-
-# Arquitectura (invertida respecto a la version anterior): el modelo de chat
-# (llama) corre local en la Raspberry Pi via llama-server. Los embeddings se
-# calculan en otra maquina de la red (servidor Python propio con Flask +
-# llama-cpp-python, ver embed_server.py), no en la Pi.
-GPU_SERVER_HOST = "http://localhost:8080"  # llama-server con el modelo de chat, local en la Pi
-EMBED_SERVER_HOST = "http://192.168.1.44:8081"  # embed_server.py corriendo en la otra maquina — cambia la IP si se reasigna por DHCP
-
-CHAT_MODEL = "llama3.2:3b-q4s"  # solo informativo — llama-server ya sirve un unico modelo fijo por instancia
-# Alternativa ultra liviana (380MB) si corres el chat directo en la Pi sin
-# servidor GPU: descarga qwen2.5-0.5b desde el Release del repo y levanta
-# llama-server con ese .gguf en vez del de llama3.2.
+import embeddings
+import llama_chat
 
 # Mismos 5 pares de rasgos y mismo orden que run_bfi.py en PersonaLLM:
 # Extraversion, Agreeableness, Conscientiousness, Neuroticism, Openness.
@@ -43,29 +29,6 @@ BIG_FIVE_TRAITS = [
     ("Neuroticism", "neurotic", "emotionally stable"),
     ("Openness", "open to experience", "closed to experience"),
 ]
-
-CORPUS_FILE = "corpus.txt"
-
-db = chromadb.Client()
-coll = db.get_or_create_collection("pipeline_docs")
-
-
-def embed(texts):
-    resp = requests.post(
-        f"{EMBED_SERVER_HOST}/v1/embeddings",
-        json={"input": texts},
-        timeout=60,
-    )
-    resp.raise_for_status()
-    data = resp.json()["data"]
-    return [item["embedding"] for item in data]
-
-
-def cargar_corpus(ruta=CORPUS_FILE):
-    """Lee el corpus del RAG desde un archivo de texto: una línea = un documento.
-    Para cambiar de tema, edita ese archivo — no hace falta tocar este script."""
-    with open(ruta, encoding="utf-8") as f:
-        return [linea.strip() for linea in f if linea.strip()]
 
 
 def _quitar_pregunta_final(texto):
@@ -95,20 +58,13 @@ def construir_personalidad():
 
 
 # --- Indexa el corpus (una sola vez al iniciar) ---
-docs = cargar_corpus()
-coll.add(
-    documents=docs,
-    embeddings=embed(docs),
-    ids=[f"doc-{i}" for i in range(len(docs))],
-)
+embeddings.indexar_corpus()
 
 historial = []  # memoria de la conversación: [{"role": "user"/"assistant", "content": ...}, ...]
 
 
 def responder(mensaje_usuario, persona_str, n_results=2):
-    contexto = "\n".join(
-        coll.query(query_embeddings=embed([mensaje_usuario]), n_results=n_results)["documents"][0]
-    )
+    contexto = embeddings.recuperar_contexto(mensaje_usuario, n_results=n_results)
 
     historial.append({"role": "user", "content": mensaje_usuario})
 
@@ -167,17 +123,7 @@ def responder(mensaje_usuario, persona_str, n_results=2):
         *historial,
     ]
 
-    resp = requests.post(
-        f"{GPU_SERVER_HOST}/v1/chat/completions",
-        json={
-            "messages": mensajes,
-            "temperature": 0.3,
-            "max_tokens": 300,
-        },
-        timeout=120,
-    )
-    resp.raise_for_status()
-    texto = _quitar_pregunta_final(resp.json()["choices"][0]["message"]["content"])
+    texto = _quitar_pregunta_final(llama_chat.generar_respuesta(mensajes))
     historial.append({"role": "assistant", "content": texto})
     return texto
 
