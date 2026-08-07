@@ -1,3 +1,4 @@
+import os
 import time
 import sys
 import cv2
@@ -9,7 +10,8 @@ from picamera2.devices.imx500 import NetworkIntrinsics
 
 MODEL = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
 LABELS_FILE = "/usr/lib/python3/dist-packages/picamera2/examples/imx500/assets/coco_labels.txt"
-OUT_IMG = "/tmp/claude-1000/-home-user/7c05deb8-d429-4c22-b430-4d4fe2d8840a/scratchpad/imx500_snapshot.jpg"
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+OUT_IMG = os.path.join(OUT_DIR, "imx500_snapshot.jpg")
 
 THRESHOLD = 0.45
 IOU = 0.65
@@ -78,5 +80,6 @@ for box, label, conf in detections:
     cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
     cv2.putText(img, f"{label} {conf:.2f}", (x, max(y - 5, 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
+os.makedirs(OUT_DIR, exist_ok=True)
 cv2.imwrite(OUT_IMG, img)
 print("Snapshot guardado en:", OUT_IMG)
