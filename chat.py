@@ -23,7 +23,7 @@ import chromadb
 GPU_SERVER_HOST = "http://10.111.167.14:11434"  # IP de la máquina con GPU (Windows/RTX A5000) — cambia si se le reasigna otra IP por DHCP
 
 EMBED_MODEL = "qwen3-embedding:4b"
-CHAT_MODEL = "llama3.2:3b-q3"  # cuantizado a q3_K_M — mas liviano, CPU al 100% con q4_K_M
+CHAT_MODEL = "llama3.2:3b-q4s"  # cuantizado a q4_K_S — mas liviano que q4_K_M, CPU al 100%
 
 embed_client = ollama.Client(host="http://localhost:11434")  # Ollama local en la Pi
 chat_client = ollama.Client(host=GPU_SERVER_HOST)  # Ollama remoto en el servidor GPU

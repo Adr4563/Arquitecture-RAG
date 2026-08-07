@@ -31,6 +31,10 @@ echo "Descargando modelos..."
 ollama pull llama3.2:3b-instruct-fp16
 ollama pull qwen3-embedding:4b
 
-echo "Cuantizando llama3.2 a q3_K_M (mas liviano para CPU al 100%)..."
-ollama create llama3.2:3b-q3 --quantize q3_K_M llama3.2:3b-instruct-fp16
+echo "Cuantizando llama3.2 a q4_K_S (mas liviano que q4_K_M; q3_K_M no es un nivel valido para --quantize)..."
+cat > /tmp/Modelfile.quant <<EOF
+FROM llama3.2:3b-instruct-fp16
+EOF
+ollama create llama3.2:3b-q4s --quantize q4_K_S -f /tmp/Modelfile.quant
 ollama rm llama3.2:3b-instruct-fp16
+rm /tmp/Modelfile.quant
