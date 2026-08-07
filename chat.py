@@ -126,11 +126,6 @@ def responder(mensaje_usuario, persona_str, n_results=2):
 
 
 def main():
-    if embeddings.coll.count() == 0:
-        print("El corpus todavía no está indexado. Corre primero:")
-        print("    python index_corpus.py\n")
-        return
-
     persona_str = construir_personalidad()
     print(f"\nPersonalidad del asistente: {persona_str}\n")
 
