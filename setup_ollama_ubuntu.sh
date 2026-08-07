@@ -28,5 +28,9 @@ echo "Variables aplicadas:"
 systemctl show ollama --property=Environment
 
 echo "Descargando modelos..."
-ollama pull llama3.2:3b
+ollama pull llama3.2:3b-instruct-fp16
 ollama pull qwen3-embedding:4b
+
+echo "Cuantizando llama3.2 a q3_K_M (mas liviano para CPU al 100%)..."
+ollama create llama3.2:3b-q3 --quantize q3_K_M llama3.2:3b-instruct-fp16
+ollama rm llama3.2:3b-instruct-fp16
