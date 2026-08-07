@@ -26,3 +26,7 @@ systemctl restart ollama
 
 echo "Variables aplicadas:"
 systemctl show ollama --property=Environment
+
+echo "Descargando modelos..."
+ollama pull llama3.2:3b
+ollama pull qwen3-embedding:4b
