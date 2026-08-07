@@ -22,13 +22,12 @@ Ollama, así que no hace falta precargarlo aquí.
 import requests
 import chromadb
 
-# Arquitectura: este script corre en la Raspberry Pi junto con ChromaDB y el
-# corpus. Los embeddings se calculan localmente (llama-server corriendo en la
-# misma Pi, modelo de embeddings); la generación del chat se delega a un
-# servidor remoto con GPU (otro llama-server corriendo ahí) porque
-# Llama3.2:3B es mucho más lento en la CPU de la Pi.
-GPU_SERVER_HOST = "http://10.111.167.14:8080"  # llama-server con el modelo de chat (GPU) — cambia la IP si se reasigna por DHCP
-EMBED_SERVER_HOST = "http://localhost:8081"  # llama-server con el modelo de embeddings (local, Pi)
+# Arquitectura (invertida respecto a la version anterior): el modelo de chat
+# (llama) corre local en la Raspberry Pi via llama-server. Los embeddings se
+# calculan en otra maquina de la red (servidor Python propio con Flask +
+# llama-cpp-python, ver embed_server.py), no en la Pi.
+GPU_SERVER_HOST = "http://localhost:8080"  # llama-server con el modelo de chat, local en la Pi
+EMBED_SERVER_HOST = "http://192.168.1.44:8081"  # embed_server.py corriendo en la otra maquina — cambia la IP si se reasigna por DHCP
 
 CHAT_MODEL = "llama3.2:3b-q4s"  # solo informativo — llama-server ya sirve un unico modelo fijo por instancia
 # Alternativa ultra liviana (380MB) si corres el chat directo en la Pi sin
