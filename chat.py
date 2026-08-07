@@ -24,6 +24,9 @@ GPU_SERVER_HOST = "http://10.111.167.14:11434"  # IP de la máquina con GPU (Win
 
 EMBED_MODEL = "qwen3-embedding:4b"
 CHAT_MODEL = "llama3.2:3b-q4s"  # cuantizado a q4_K_S — mas liviano que q4_K_M, CPU al 100%
+# Alternativa ultra liviana (380MB) si corres el chat directo en la Pi sin
+# servidor GPU: descarga qwen2.5-0.5b desde el Release del repo, registralo
+# con `ollama create qwen2.5:0.5b -f Modelfile`, y cambia CHAT_MODEL a "qwen2.5:0.5b"
 
 embed_client = ollama.Client(host="http://localhost:11434")  # Ollama local en la Pi
 chat_client = ollama.Client(host=GPU_SERVER_HOST)  # Ollama remoto en el servidor GPU
