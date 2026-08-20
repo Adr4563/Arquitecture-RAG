@@ -19,6 +19,7 @@ import os
 import json
 import re
 import random
+import time
 import requests
 from flask import Flask, request, jsonify
 from rank_bm25 import BM25Okapi
@@ -76,14 +77,33 @@ def _reconstruir_bm25(preguntas):
     _bm25 = BM25Okapi([_tokenizar(p["pregunta"]) for p in preguntas])
 
 
-def _embed(textos):
+TAMANIO_LOTE_EMBED = 32  # mandar los 246+ de una sola vez a Ollama a veces tira 400 (flaky, no confiable)
+REINTENTOS_EMBED = 3
+
+
+def _embed_lote(textos, intento=1):
     resp = requests.post(
         f"{OLLAMA_HOST}/api/embed",
         json={"model": EMBED_MODEL, "input": textos},
         timeout=120,
     )
+    if resp.status_code == 400 and intento < REINTENTOS_EMBED:
+        # Se vio fallar de forma intermitente con lotes grandes (Ollama
+        # cargando/liberando el modelo, contención con otro request en
+        # simultáneo) — el mismo lote exacto suele funcionar en el reintento.
+        time.sleep(1.5 * intento)
+        return _embed_lote(textos, intento + 1)
     resp.raise_for_status()
     return resp.json()["embeddings"]
+
+
+def _embed(textos):
+    """Manda los textos a Ollama en lotes chicos en vez de todos de una vez:
+    un solo request con 246+ textos falla con 400 de forma intermitente."""
+    embeddings = []
+    for i in range(0, len(textos), TAMANIO_LOTE_EMBED):
+        embeddings.extend(_embed_lote(textos[i:i + TAMANIO_LOTE_EMBED]))
+    return embeddings
 
 
 def _indexar_preguntas():

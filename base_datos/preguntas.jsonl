@@ -21,18 +21,18 @@
 {"id": "p-21", "pregunta": "Oye , ¿jugamos al juego de las emociones?", "cara": "Enojado / Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de emociones / Juego de imitación"}
 {"id": "p-22", "pregunta": "¿Cuál es tu nombre?", "cara": "Enojado / Feliz / Neutral / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de colores"}
 {"id": "p-23", "pregunta": "¿Puedes imitarme?", "cara": "Enojado / Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de emociones / Juego de imitación"}
-{"id": "p-24", "pregunta": "¿Cuánto es cinco por ocho?", "cara": "Feliz / Neutral / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-25", "pregunta": "¿Cuánto es cuatro por cinco?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-26", "pregunta": "¿Cuánto es dos por cinco?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-27", "pregunta": "¿Cuánto es nueve por seis?", "cara": "Feliz / Neutral / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-28", "pregunta": "¿Cuánto es ocho por nueve?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-29", "pregunta": "¿Cuánto es seis por siete?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-30", "pregunta": "¿Cuánto es siete por nueve?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-31", "pregunta": "¿Cuánto es tres por seis?", "cara": "Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-24", "pregunta": "¿Cuánto es cinco por ocho?", "cara": "Feliz / Neutral / Triste", "respuesta_esperada": "40", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-25", "pregunta": "¿Cuánto es cuatro por cinco?", "cara": "Feliz / Triste", "respuesta_esperada": "20", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-26", "pregunta": "¿Cuánto es dos por cinco?", "cara": "Feliz / Triste", "respuesta_esperada": "10", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-27", "pregunta": "¿Cuánto es nueve por seis?", "cara": "Feliz / Neutral / Triste", "respuesta_esperada": "54", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-28", "pregunta": "¿Cuánto es ocho por nueve?", "cara": "Feliz / Triste", "respuesta_esperada": "72", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-29", "pregunta": "¿Cuánto es seis por siete?", "cara": "Feliz / Triste", "respuesta_esperada": "42", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-30", "pregunta": "¿Cuánto es siete por nueve?", "cara": "Feliz / Triste", "respuesta_esperada": "63", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-31", "pregunta": "¿Cuánto es tres por seis?", "cara": "Feliz / Triste", "respuesta_esperada": "18", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
 {"id": "p-32", "pregunta": "¿Cómo te llamas?", "cara": "Feliz / Neutral", "respuesta_esperada": "", "tema": ""}
 {"id": "p-33", "pregunta": "Por favor, ¿podrías decir tu nombre?", "cara": "Neutral", "respuesta_esperada": "", "tema": ""}
 {"id": "p-34", "pregunta": "¿Cómo estás?", "cara": "Neutral", "respuesta_esperada": "", "tema": ""}
-{"id": "p-35", "pregunta": "¿Cuánto es 1 por 8?", "cara": "Neutral", "respuesta_esperada": "", "tema": "Prueba de multiplicar nivel Simple"}
+{"id": "p-35", "pregunta": "¿Cuánto es 1 por 8?", "cara": "Neutral", "respuesta_esperada": "8", "tema": "Prueba de multiplicar nivel Simple"}
 {"id": "p-36", "pregunta": "Oye , ¿jugamos al juego de la imitación?", "cara": "Enojado / Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de imitación"}
 {"id": "p-37", "pregunta": "Entonces, empecemos.", "cara": "Neutral", "respuesta_esperada": "", "tema": ""}
 {"id": "p-38", "pregunta": "Joana necesita llenar 7 vasos de 3 ml con gaseosa. ¿Qué cantidad total de gaseosa necesitará?", "cara": "Neutral", "respuesta_esperada": "21", "tema": "Juego de multiplicar nivel Alto 1"}
@@ -76,14 +76,14 @@
 {"id": "p-76", "pregunta": "Hola Marcelo, ¿cómo te estás sintiendo?", "cara": "Neutral", "respuesta_esperada": "", "tema": "Reconocimiento visual"}
 {"id": "p-77", "pregunta": "Esta canción se hizo viral en internet. ¿Te habrá gustado?", "cara": "Neutral", "respuesta_esperada": "", "tema": "Reconocimiento Musical"}
 {"id": "p-78", "pregunta": "¡Esta canción es un clásico del cine! ¿Te habrá gustado?", "cara": "Neutral", "respuesta_esperada": "", "tema": "Reconocimiento Musical"}
-{"id": "p-79", "pregunta": "¿Cuánto es cinco por ocho?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-80", "pregunta": "¿Cuánto es cuatro por cinco?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-81", "pregunta": "¿Cuánto es dos por cinco?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-82", "pregunta": "¿Cuánto es nueve por seis?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-83", "pregunta": "¿Cuánto es ocho por nueve?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-84", "pregunta": "¿Cuánto es seis por siete?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-85", "pregunta": "¿Cuánto es siete por nueve?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
-{"id": "p-86", "pregunta": "¿Cuánto es tres por seis?", "cara": "Feliz", "respuesta_esperada": "", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-79", "pregunta": "¿Cuánto es cinco por ocho?", "cara": "Feliz", "respuesta_esperada": "40", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-80", "pregunta": "¿Cuánto es cuatro por cinco?", "cara": "Feliz", "respuesta_esperada": "20", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-81", "pregunta": "¿Cuánto es dos por cinco?", "cara": "Feliz", "respuesta_esperada": "10", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-82", "pregunta": "¿Cuánto es nueve por seis?", "cara": "Feliz", "respuesta_esperada": "54", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-83", "pregunta": "¿Cuánto es ocho por nueve?", "cara": "Feliz", "respuesta_esperada": "72", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-84", "pregunta": "¿Cuánto es seis por siete?", "cara": "Feliz", "respuesta_esperada": "42", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-85", "pregunta": "¿Cuánto es siete por nueve?", "cara": "Feliz", "respuesta_esperada": "63", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
+{"id": "p-86", "pregunta": "¿Cuánto es tres por seis?", "cara": "Feliz", "respuesta_esperada": "18", "tema": "Juego de multiplicar nivel Simple 1 / Juego de multiplicar nivel Simple 2"}
 {"id": "p-87", "pregunta": "¿Cómo te llamas?", "cara": "Feliz", "respuesta_esperada": "", "tema": ""}
 {"id": "p-88", "pregunta": "¿Cómo me estoy sintiendo?", "cara": "Enojado / Triste", "respuesta_esperada": "", "tema": "Juego de emociones"}
 {"id": "p-89", "pregunta": "¿Feliz, triste o enojado?", "cara": "Enojado / Feliz / Triste", "respuesta_esperada": "", "tema": "Juego de emociones"}
