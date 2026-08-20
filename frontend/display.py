@@ -68,8 +68,12 @@ def detener():
     global _proceso
     if _proceso is not None and _proceso.poll() is None:
         _proceso.terminate()
+        try:
+            _proceso.wait(timeout=2)  # sin esto, Windows todavía tiene el archivo
+        except subprocess.TimeoutExpired:  # abierto un instante y el remove() de abajo falla
+            pass
     _proceso = None
     try:
         os.remove(ARCHIVO_SENAL)
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         pass

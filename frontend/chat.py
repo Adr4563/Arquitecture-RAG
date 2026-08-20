@@ -137,10 +137,12 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
             display.mostrar_cara(elegir_cara(acerto))
             comentar_resultado(pendiente["pregunta"], pendiente["respuesta_esperada"],
                                mensaje_usuario, acerto, persona_str, on_token=on_token)
-            # Sin esto, apenas termina de generarse la reacción salta directo al
-            # 'speaking' de la siguiente pregunta: la cara de happy/sad/angry
-            # quedaba visible medio segundo o menos, casi imperceptible.
+            # Se queda un rato en la emoción (acierto o error, mismo trato para
+            # las dos) antes de pasar a 'speaking' — el asistente ya va a decir
+            # algo más (la próxima pregunta, o si se acabó la tanda) así que
+            # vuelve a "hablar" antes de eso, no queda pegado en la emoción.
             time.sleep(PAUSA_CAMBIO_CARA)
+            display.mostrar_cara("speaking")
         else:
             # Temas como Chistes o Reconocimiento Musical no tienen una
             # respuesta correcta que corregir: no hay veredicto del corrector,
@@ -154,9 +156,14 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
         # pero preguntarlo explícito evita que el usuario se quede sin saber
         # qué esperar después de la última pregunta).
         if not _preguntar_siguiente(estado):
-            display.mostrar_cara("content")  # se acabó la tanda: cara de reposo hasta el próximo turno
+            # Ya está en 'speaking' desde la rama de arriba (o se acaba de
+            # poner acá si no hubo veredicto) para el mensaje de cierre de
+            # tanda; recién después de decirlo pasa a la cara de reposo.
+            display.mostrar_cara("speaking")
             print("Asistente: Esas eran las 5. ¿Seguimos con más trivia, "
                   "buscamos algo en la web, o prefieres charlar?\n")
+            time.sleep(PAUSA_CAMBIO_CARA)
+            display.mostrar_cara("content")
         return
 
     opciones = ", ".join(random.sample(TEMAS_CATALOGO, 5))
