@@ -79,6 +79,10 @@ def _preguntar_siguiente(estado):
     estado["pregunta_pendiente"] = actual
     display.mostrar_cara("speaking")  # se lanza una pregunta: la LCD "habla"
     print(f"Asistente [{actual['cara']}]: {actual['pregunta']}\n")
+    # La pregunta se imprime de una (no hay streaming que marque cuándo
+    # "termina de hablar"), así que el propio print ya es el fin del habla:
+    # pasa a la cara de reposo mientras espera que el usuario conteste.
+    display.mostrar_cara("content")
     return True
 
 
