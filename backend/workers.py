@@ -64,6 +64,9 @@ def generar_apertura(persona_str, on_token=None):
 
 
 def responder(mensaje_usuario, persona_str, n_results=2, on_token=None):
+    """Devuelve (texto_final, fue_corregida) — fue_corregida es el veredicto
+    del verificador (True = tuvo que arreglar la respuesta), que cara_agente
+    usa para elegir happy vs sad/angry."""
     contexto = "" if _es_mensaje_trivial(mensaje_usuario) else recuperar_contexto(
         mensaje_usuario, n_results=n_results
     )
@@ -74,7 +77,7 @@ def responder(mensaje_usuario, persona_str, n_results=2, on_token=None):
         # le manda la pregunta si no hay nada relevante en la base de datos.
         if on_token:
             on_token(RESPUESTA_SIN_CONTEXTO)
-        return RESPUESTA_SIN_CONTEXTO
+        return RESPUESTA_SIN_CONTEXTO, True  # "no tengo el dato" no es un momento feliz
 
     # Sin historial: cada turno es system (fijo, cacheado) + un único user con
     # el contexto recuperado de Chroma/BM25 + la pregunta, nada más.
@@ -97,10 +100,10 @@ def responder(mensaje_usuario, persona_str, n_results=2, on_token=None):
     # imprimiera token a token, ya estaría en pantalla para cuando se
     # detectara que hay que corregirlo.
     borrador = generar_respuesta(mensajes).strip()
-    texto_final = verificar_y_corregir(mensaje_usuario, borrador)
+    texto_final, fue_corregida = verificar_y_corregir(mensaje_usuario, borrador)
     if on_token:
         on_token(texto_final)
-    return texto_final
+    return texto_final, fue_corregida
 
 
 # ─── Trivia ────────────────────────────────────────────────────
@@ -284,13 +287,15 @@ def responder_busqueda_web(mensaje_usuario, persona_str, on_token=None):
     prompt: pedirle al modelo "si no hay nada dilo tal cual" no es
     confiable — de un turno a otro inventa la respuesta con su propio
     conocimiento, o directo se rehúsa ("no estoy diseñado para eso"). Mismo
-    criterio que SIN_CONTEXTO en responder() (chat libre)."""
+    criterio que SIN_CONTEXTO en responder() (chat libre).
+
+    Devuelve (texto_final, fue_corregida) — ver la nota en responder()."""
     termino = extraer_termino_busqueda(mensaje_usuario)
     resultado = tool_web_search(termino)
     if resultado is None:
         if on_token:
             on_token(SIN_RESULTADO_WEB)
-        return SIN_RESULTADO_WEB
+        return SIN_RESULTADO_WEB, True  # no encontrar nada tampoco es un momento feliz
 
     mensajes = [
         {"role": "system", "content": obtener_system_prompt(persona_str)},
@@ -304,7 +309,7 @@ def responder_busqueda_web(mensaje_usuario, persona_str, on_token=None):
     # Sin streaming: el verificador necesita el texto completo antes de que
     # el usuario lo vea (ver la misma nota en responder(), chat libre).
     borrador = generar_respuesta(mensajes).strip()
-    texto_final = verificar_y_corregir(mensaje_usuario, borrador)
+    texto_final, fue_corregida = verificar_y_corregir(mensaje_usuario, borrador)
     if on_token:
         on_token(texto_final)
-    return texto_final
+    return texto_final, fue_corregida

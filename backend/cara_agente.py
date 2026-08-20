@@ -1,35 +1,23 @@
 """
-Agente de caras: decide qué cara (happy/sad/angry/content) le corresponde
-al texto que va a decir el asistente, según su tono — para Chat libre y
-Búsqueda Web.
+Agente de caras: decide qué cara (happy/sad/angry) le corresponde a una
+respuesta de Chat libre o Búsqueda Web, según si el verificador la encontró
+buena o tuvo que corregirla.
 
-Trivia no lo usa: ahí la cara la decide corrector.elegir_cara() según si la
-respuesta del usuario fue correcta o no (un criterio objetivo). Acá no hay
-acierto/error que evaluar, así que el criterio es distinto: el tono de lo
-que el asistente mismo está por decir.
+Mismo criterio de 3 opciones que corrector.elegir_cara() usa para Trivia
+(acierto -> happy, error -> sad/angry al azar), pero acá el veredicto no es
+"¿la respuesta del usuario es correcta?" sino "¿la respuesta del asistente
+estaba bien o hubo que corregirla?" (ver verificador.verificar_y_corregir).
+No hace falta una llamada aparte al modelo para esto: el veredicto ya lo
+tiene el verificador, esta función solo lo traduce a una cara.
 """
 
-from llama_client import generar_respuesta
+import random
 
-CARAS_POSIBLES = ["happy", "sad", "angry", "content"]
+CARA_BUENA = "happy"
+CARAS_MALA = ["sad", "angry"]
 
 
-def elegir_cara_por_tono(texto):
-    """Clasifica el tono de `texto` y devuelve la cara que le corresponde.
-    Si el modelo devuelve algo fuera de las 4 válidas, cae en 'content'
-    (tono neutral) en vez de romper."""
-    mensajes = [
-        {"role": "system", "content": (
-            "Eres un clasificador de tono. Te dan una frase que va a decir un "
-            "robot. Elige qué cara le corresponde según el tono:\n"
-            "- happy: contenido positivo, buenas noticias, entusiasmo.\n"
-            "- sad: contenido negativo, malas noticias, decepción.\n"
-            "- angry: enojo, queja, frustración.\n"
-            "- content: tono neutral/informativo, sin carga emocional marcada.\n"
-            "Responde EXACTAMENTE con una palabra: happy, sad, angry o content."
-        )},
-        {"role": "user", "content": texto},
-    ]
-    # temperature=0: es clasificación, no charla — no queremos variación entre corridas.
-    cara = generar_respuesta(mensajes, temperature=0, max_tokens=5).strip().lower()
-    return cara if cara in CARAS_POSIBLES else "content"
+def elegir_cara(fue_corregida):
+    """fue_corregida viene de verificador.verificar_y_corregir(): True si la
+    respuesta estaba mal y hubo que arreglarla, False si ya estaba bien."""
+    return random.choice(CARAS_MALA) if fue_corregida else CARA_BUENA
