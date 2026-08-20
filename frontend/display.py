@@ -8,9 +8,15 @@ máquina donde corre chat.py" (el Manager), no al servidor de embeddings/modelos
 
 Por el momento (demo en PC) usa face_viewer.py, un visor propio en Tkinter
 (viene incluido con Python, no depende de instalar nada aparte ni de tener
-algo en el PATH). Cuando se pase a la LCD real de la Raspberry Pi, esto se
-puede volver a cambiar por un reproductor a pantalla completa (mpv, etc.)
-sin tocar el resto de chat.py — la interfaz (mostrar_cara/detener) no cambia.
+algo en el PATH). El visor se lanza UNA sola vez y se queda vivo durante toda
+la sesión: cambiar de cara no relanza la ventana (eso competía por foco/
+z-order con la terminal cada vez, y a veces se perdía esa carrera y la
+ventana nueva quedaba tapada) — solo se reescribe qué gif tiene que mostrar,
+vía un archivo de señal que el visor revisa periódicamente.
+
+Cuando se pase a la LCD real de la Raspberry Pi, esto se puede volver a
+cambiar (ej. por mpv en pantalla completa) sin tocar el resto de chat.py —
+la interfaz (mostrar_cara/detener) no cambia.
 """
 
 import os
@@ -20,20 +26,29 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 FACES_DIR = os.path.join(HERE, "faces")
 VIEWER = os.path.join(HERE, "face_viewer.py")
+ARCHIVO_SENAL = os.path.join(HERE, ".current_face")
 
 CARAS_VALIDAS = {"happy", "sad", "angry", "content", "speaking"}
 
-_proceso_actual = None
+_proceso = None
+
+
+def _asegurar_visor(ruta_gif_inicial):
+    """Lanza la ventana del visor si todavía no hay una viva. No hace nada
+    si ya hay una corriendo — ahí el cambio de cara va por el archivo de
+    señal, no por relanzar el proceso."""
+    global _proceso
+    if _proceso is not None and _proceso.poll() is None:
+        return
+    _proceso = subprocess.Popen(
+        [sys.executable, VIEWER, ruta_gif_inicial, ARCHIVO_SENAL],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
 
 
 def mostrar_cara(nombre):
-    """Reemplaza la carita en pantalla por faces/<nombre>.gif, en loop.
-
-    Mata el visor anterior antes de lanzar el nuevo: no tiene sentido tener
-    dos ventanas de cara a la vez.
-    """
-    global _proceso_actual
-
+    """Le pide a la ventana del visor (ya abierta, o recién abierta si es la
+    primera vez) que muestre faces/<nombre>.gif, en loop."""
     if nombre not in CARAS_VALIDAS:
         print(f"[display] Cara desconocida: {nombre!r} (válidas: {sorted(CARAS_VALIDAS)})")
         return
@@ -43,20 +58,18 @@ def mostrar_cara(nombre):
         print(f"[display] No existe {ruta_gif}")
         return
 
-    if _proceso_actual is not None and _proceso_actual.poll() is None:
-        _proceso_actual.terminate()
-
-    # sys.executable: el mismo intérprete que ya está corriendo chat.py, así
-    # que no hay que resolver ningún ejecutable externo por PATH.
-    _proceso_actual = subprocess.Popen(
-        [sys.executable, VIEWER, ruta_gif],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    _asegurar_visor(ruta_gif)
+    with open(ARCHIVO_SENAL, "w", encoding="utf-8") as f:
+        f.write(ruta_gif)
 
 
 def detener():
-    """Cierra el visor actual, si hay uno corriendo (ej. al salir del chat)."""
-    global _proceso_actual
-    if _proceso_actual is not None and _proceso_actual.poll() is None:
-        _proceso_actual.terminate()
-    _proceso_actual = None
+    """Cierra la ventana del visor, si hay una corriendo (ej. al salir del chat)."""
+    global _proceso
+    if _proceso is not None and _proceso.poll() is None:
+        _proceso.terminate()
+    _proceso = None
+    try:
+        os.remove(ARCHIVO_SENAL)
+    except FileNotFoundError:
+        pass
