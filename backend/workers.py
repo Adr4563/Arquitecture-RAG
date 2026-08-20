@@ -152,20 +152,32 @@ def obtener_preguntas_por_tema(tema, ya_usados, cantidad=5):
 
 
 def comentar_resultado(pregunta, esperada, respuesta_usuario, acerto, persona_str, on_token=None):
-    """Reacción hablada del robot tras corregir, con su personalidad."""
+    """Reacción hablada del robot tras corregir, con su personalidad.
+
+    El veredicto (acerto) ya viene resuelto por evaluar_respuesta() — acá NO
+    se le pide al modelo que vuelva a resolver la pregunta, solo que
+    reaccione. Sin ser explícito con esto, un modelo chico tiende a
+    "re-resolver" el ejercicio por su cuenta en vez de limitarse a comentar
+    el resultado, y a veces lo hace mal (ej. lee "1 por 8" como "1/8" y
+    contesta con eso en vez de confirmar el acierto).
+    """
     if acerto:
-        instruccion = "El estudiante acertó. Confírmaselo en una frase corta."
+        instruccion = (
+            f"El estudiante respondió '{respuesta_usuario}' y ACERTÓ (la respuesta "
+            f"correcta es {esperada}). Confírmaselo en una frase corta."
+        )
     else:
         instruccion = (
-            f"El estudiante se equivocó. Dile en una frase corta que no es correcto "
-            f"y cuál era la respuesta: {esperada}."
+            f"El estudiante respondió '{respuesta_usuario}' y SE EQUIVOCÓ. Dile en una "
+            f"frase corta que no es correcto y que la respuesta correcta era {esperada}."
         )
     mensajes = [
         {"role": "system", "content": obtener_system_prompt(persona_str)},
         {"role": "user", "content": (
-            f"Pregunta: {pregunta}\n"
-            f"Respuesta del estudiante: {respuesta_usuario}\n\n"
-            f"{instruccion} No hagas otra pregunta."
+            f"Pregunta que se hizo: {pregunta}\n\n"
+            f"{instruccion} No vuelvas a resolver la pregunta ni expliques el cálculo: "
+            "el veredicto ya está decidido, tu única tarea es reaccionar a él. "
+            "No hagas otra pregunta."
         )},
     ]
     return generar_respuesta(mensajes, on_token=on_token).strip()

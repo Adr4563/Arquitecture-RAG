@@ -137,6 +137,10 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
             display.mostrar_cara(elegir_cara(acerto))
             comentar_resultado(pendiente["pregunta"], pendiente["respuesta_esperada"],
                                mensaje_usuario, acerto, persona_str, on_token=on_token)
+            # Sin esto, apenas termina de generarse la reacción salta directo al
+            # 'speaking' de la siguiente pregunta: la cara de happy/sad/angry
+            # quedaba visible medio segundo o menos, casi imperceptible.
+            time.sleep(PAUSA_CAMBIO_CARA)
         else:
             # Temas como Chistes o Reconocimiento Musical no tienen una
             # respuesta correcta que corregir: no hay veredicto del corrector,
