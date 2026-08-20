@@ -23,6 +23,7 @@ import display  # frontend/display.py: carita en la LCD conectada a esta Raspber
 
 # Habilita importar los módulos de backend/ desde este script hermano.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend"))
+from cara_agente import elegir_cara_por_tono  # noqa: E402
 from corrector import elegir_cara, evaluar_respuesta  # noqa: E402
 from llama_client import generar_respuesta  # noqa: E402
 from personalidad import construir_personalidad  # noqa: E402
@@ -172,18 +173,26 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
 
 
 def manejar_busqueda_web(mensaje_usuario, persona_str, on_token):
-    display.mostrar_cara("speaking")  # la IA interactúa con el usuario
+    display.mostrar_cara("speaking")  # generando/revisando la respuesta (ver nota en workers.responder)
     print("Asistente: ", end="", flush=True)
-    responder_busqueda_web(mensaje_usuario, persona_str, on_token=on_token)
+    texto = responder_busqueda_web(mensaje_usuario, persona_str, on_token=on_token)
     print("\n")
+    # Cara según el tono de lo que realmente terminó diciendo (ya verificado),
+    # no un genérico "content" fijo — recién se sabe una vez que está listo.
+    display.mostrar_cara(elegir_cara_por_tono(texto))
+    time.sleep(PAUSA_CAMBIO_CARA)
     display.mostrar_cara("content")  # cara de reposo hasta el próximo turno
 
 
 def manejar_chat_libre(mensaje_usuario, persona_str, on_token):
-    display.mostrar_cara("speaking")  # la IA interactúa con el usuario
+    display.mostrar_cara("speaking")  # generando/revisando la respuesta (ver nota en workers.responder)
     print("Asistente: ", end="", flush=True)
-    responder(mensaje_usuario, persona_str, on_token=on_token)
+    texto = responder(mensaje_usuario, persona_str, on_token=on_token)
     print("\n")
+    # Cara según el tono de lo que realmente terminó diciendo (ya verificado),
+    # no un genérico "content" fijo — recién se sabe una vez que está listo.
+    display.mostrar_cara(elegir_cara_por_tono(texto))
+    time.sleep(PAUSA_CAMBIO_CARA)
     display.mostrar_cara("content")  # cara de reposo hasta el próximo turno
 
 

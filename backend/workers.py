@@ -10,6 +10,7 @@ import requests
 
 from llama_client import EMBED_SERVER_HOST, SIN_CONTEXTO, generar_respuesta, recuperar_contexto
 from personalidad import obtener_system_prompt
+from verificador import verificar_y_corregir
 
 RESPUESTA_SIN_CONTEXTO = "No tengo información sobre eso en mi base de datos."
 
@@ -91,7 +92,15 @@ def responder(mensaje_usuario, persona_str, n_results=2, on_token=None):
         {"role": "user", "content": user},
     ]
 
-    return generar_respuesta(mensajes, on_token=on_token).strip()
+    # Sin streaming a propósito: el agente verificador necesita el texto
+    # completo para revisarlo antes de que el usuario lo vea — si se
+    # imprimiera token a token, ya estaría en pantalla para cuando se
+    # detectara que hay que corregirlo.
+    borrador = generar_respuesta(mensajes).strip()
+    texto_final = verificar_y_corregir(mensaje_usuario, borrador)
+    if on_token:
+        on_token(texto_final)
+    return texto_final
 
 
 # ─── Trivia ────────────────────────────────────────────────────
@@ -291,4 +300,11 @@ def responder_busqueda_web(mensaje_usuario, persona_str, on_token=None):
             "Responde con esa información, en una frase corta."
         )},
     ]
-    return generar_respuesta(mensajes, on_token=on_token).strip()
+
+    # Sin streaming: el verificador necesita el texto completo antes de que
+    # el usuario lo vea (ver la misma nota en responder(), chat libre).
+    borrador = generar_respuesta(mensajes).strip()
+    texto_final = verificar_y_corregir(mensaje_usuario, borrador)
+    if on_token:
+        on_token(texto_final)
+    return texto_final
