@@ -1,3 +1,5 @@
 flask
-llama-cpp-python
+requests
+httpx
 chromadb
+rank_bm25

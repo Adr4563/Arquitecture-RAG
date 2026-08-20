@@ -10,3 +10,4 @@ WebScraping/
 models/
 *.gguf
 chroma_data/
+.claude/settings.local.json
