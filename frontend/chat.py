@@ -68,7 +68,7 @@ def enrutar_mensaje(mensaje_usuario):
 
 
 PREGUNTAS_POR_TANDA = 5
-PAUSA_CAMBIO_CARA = 2  # segundos en 'content' antes de pasar a la cara que sigue (habla o reacción)
+PAUSA_CAMBIO_CARA = 4  # segundos en 'content' antes de pasar a la cara que sigue (habla o reacción)
 
 
 def _preguntar_siguiente(estado):
