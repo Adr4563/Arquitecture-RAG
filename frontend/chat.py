@@ -18,9 +18,11 @@ import os
 import random
 import sys
 
+import display  # frontend/display.py: carita en la LCD conectada a esta Raspberry Pi
+
 # Habilita importar los módulos de backend/ desde este script hermano.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend"))
-from corrector import evaluar_respuesta  # noqa: E402
+from corrector import elegir_cara, evaluar_respuesta  # noqa: E402
 from llama_client import generar_respuesta  # noqa: E402
 from personalidad import construir_personalidad  # noqa: E402
 from workers import (  # noqa: E402
@@ -75,6 +77,7 @@ def _preguntar_siguiente(estado):
         return False
     actual = estado["cola_preguntas"].pop(0)
     estado["pregunta_pendiente"] = actual
+    display.mostrar_cara("speaking")  # se lanza una pregunta: la LCD "habla"
     print(f"Asistente [{actual['cara']}]: {actual['pregunta']}\n")
     return True
 
@@ -116,11 +119,17 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
             acerto = evaluar_respuesta(pendiente["pregunta"], pendiente["respuesta_esperada"],
                                         mensaje_usuario)
             estado["aciertos"] += acerto
+            # El corrector decide la cara (happy si acertó, sad/angry si no) —
+            # se muestra ANTES de la reacción hablada, no "speaking": acá lo
+            # que importa comunicar primero es el veredicto, no que está hablando.
+            display.mostrar_cara(elegir_cara(acerto))
             comentar_resultado(pendiente["pregunta"], pendiente["respuesta_esperada"],
                                mensaje_usuario, acerto, persona_str, on_token=on_token)
         else:
             # Temas como Chistes o Reconocimiento Musical no tienen una
-            # respuesta correcta que corregir: solo se reacciona.
+            # respuesta correcta que corregir: no hay veredicto del corrector,
+            # así que la reacción va con la cara genérica de "hablando".
+            display.mostrar_cara("speaking")
             reaccionar_libre(pendiente["pregunta"], mensaje_usuario, persona_str, on_token=on_token)
         print("\n")
 
@@ -129,6 +138,7 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
         # pero preguntarlo explícito evita que el usuario se quede sin saber
         # qué esperar después de la última pregunta).
         if not _preguntar_siguiente(estado):
+            display.mostrar_cara("content")  # se acabó la tanda: cara de reposo hasta el próximo turno
             print("Asistente: Esas eran las 5. ¿Seguimos con más trivia, "
                   "buscamos algo en la web, o prefieres charlar?\n")
         return
@@ -139,24 +149,30 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
 
 
 def manejar_busqueda_web(mensaje_usuario, persona_str, on_token):
+    display.mostrar_cara("speaking")  # la IA interactúa con el usuario
     print("Asistente: ", end="", flush=True)
     responder_busqueda_web(mensaje_usuario, persona_str, on_token=on_token)
     print("\n")
+    display.mostrar_cara("content")  # cara de reposo hasta el próximo turno
 
 
 def manejar_chat_libre(mensaje_usuario, persona_str, on_token):
+    display.mostrar_cara("speaking")  # la IA interactúa con el usuario
     print("Asistente: ", end="", flush=True)
     responder(mensaje_usuario, persona_str, on_token=on_token)
     print("\n")
+    display.mostrar_cara("content")  # cara de reposo hasta el próximo turno
 
 
 def main():
+    display.mostrar_cara("speaking")  # la IA arranca la conversación: está "hablando"
     print("Asistente: Hola, mi nombre es Ereberus, ¿cuál es tu nombre?")
     nombre = input("Tú: ").strip() or "amigo"
     print(f"Asistente: Mucho gusto en conocerte, {nombre}.")
     print("Asistente: Puedo hacerte trivia, buscarte algo de actualidad, o simplemente "
           "conversar — voy cambiando de modo según lo que me pidas. Escribe 'salir' "
           "para terminar.\n")
+    display.mostrar_cara("content")  # cara de reposo mientras espera el primer mensaje
 
     persona_str = construir_personalidad()
     imprimir = lambda t: print(t, end="", flush=True)
@@ -193,6 +209,7 @@ def main():
     if estado["total"]:
         print(f"\nAsistente: Terminamos. Acertaste {estado['aciertos']} de {estado['total']}.")
     print("Asistente: ¡Hasta luego!")
+    display.detener()
 
 
 if __name__ == "__main__":

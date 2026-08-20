@@ -1,6 +1,7 @@
 """
 Agente corrector: decide si la respuesta del usuario a una pregunta de Trivia
-es correcta o no.
+es correcta o no, y qué cara le corresponde a ese veredicto en la pantalla
+LCD (frontend/faces/*.gif).
 
 Separado del resto de los workers a propósito: es el único punto del sistema
 que emite un veredicto objetivo (CORRECTO/INCORRECTO) en vez de una reacción
@@ -8,7 +9,21 @@ con personalidad, y corre con temperature=0 porque calificar debe ser
 determinista, no creativo.
 """
 
+import random
+
 from llama_client import generar_respuesta
+
+# Ante un acierto siempre la misma cara (no hay ambigüedad en "bien hecho").
+# Ante un error se alterna entre dos para que la reacción no se sienta
+# repetitiva pregunta tras pregunta.
+CARA_ACIERTO = "happy"
+CARAS_ERROR = ["sad", "angry"]
+
+
+def elegir_cara(acerto):
+    """Cara a mostrar en la LCD según el veredicto de evaluar_respuesta():
+    'happy' si acertó, 'sad' o 'angry' (al azar) si no."""
+    return CARA_ACIERTO if acerto else random.choice(CARAS_ERROR)
 
 
 def evaluar_respuesta(pregunta, esperada, respuesta_usuario):
