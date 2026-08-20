@@ -15,8 +15,9 @@ import os
 import sys
 import tkinter as tk
 
-POLL_MS = 150   # cada cuánto revisa si se pidió otra cara
-FRAME_MS = 80   # delay entre frames de la animación (~12 fps)
+POLL_MS = 150     # cada cuánto revisa si se pidió otra cara
+FRAME_MS = 80     # delay entre frames de la animación (~12 fps)
+REFRESCO_TOPMOST_MS = 1000  # cada cuánto se reafirma "siempre encima"
 
 
 class Visor:
@@ -43,6 +44,16 @@ class Visor:
 
         self._cargar(ruta_inicial)
         self.root.after(POLL_MS, self._revisar_senal)
+        # Windows le puede sacar el "siempre encima" a una ventana en segundo
+        # plano con el tiempo (foco robado por otra app, un cuadro de diálogo,
+        # etc.) sin que el proceso se entere — reafirmarlo solo al crear la
+        # ventana no alcanza. Se re-pide cada 1s en vez de una sola vez.
+        self.root.after(REFRESCO_TOPMOST_MS, self._reafirmar_topmost)
+
+    def _reafirmar_topmost(self):
+        self.root.attributes("-topmost", True)
+        self.root.lift()
+        self.root.after(REFRESCO_TOPMOST_MS, self._reafirmar_topmost)
 
     def _cargar(self, ruta):
         if ruta == self.ruta_actual or not os.path.isfile(ruta):
@@ -64,6 +75,9 @@ class Visor:
         self.frames = frames
         self.ruta_actual = ruta
         self._animar(0)
+        # Justo cuando cambia la cara es el momento más importante para que
+        # se vea — no esperar al próximo refresco periódico de topmost.
+        self.root.lift()
 
     def _animar(self, idx):
         self.label.configure(image=self.frames[idx])
