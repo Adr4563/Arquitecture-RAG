@@ -1,147 +1,198 @@
 """
-Chat interactivo con RAG local y personalidad Big Five — TODO EN UN ARCHIVO.
+Manager: enruta cada turno del chat a un worker (Trivia / Búsqueda Web / Chat
+libre) y lleva el loop de conversación. La lógica de cada worker, los clientes
+HTTP y la personalidad viven en backend/ — acá solo se orquesta.
 
-Junta lo que antes estaba separado en chat.py + embeddings.py + llama_chat.py:
-  - cliente de embeddings/RAG (habla con embed_server.py)
-  - cliente del modelo de chat (habla con el llama-server)
-  - orquestación + personalidad Big Five (OCEAN, enfoque PersonaLLM)
+A diferencia de un chat con personalidad fija, esto es un router puro: por
+cada mensaje del usuario decide a cuál de los tres workers mandarlo. Corre en
+CADA turno, no solo al arrancar, para que el usuario pueda saltar de trivia a
+preguntar algo actual o charlar libre sin reiniciar la sesión — el costo es
+una llamada extra al LLM por mensaje.
 
 Corre con:
     python chat.py
 Escribe 'salir' para terminar.
 """
 
-import requests
+import os
+import random
+import sys
 
-# ─── Servidores ──────────────────────────────────────────────
-EMBED_SERVER_HOST = "http://localhost:8081"  # embed_server.py (embeddings + ChromaDB)
-CHAT_SERVER_HOST = "http://localhost:8080"       # llama-server (modelo de chat)
+# Habilita importar los módulos de backend/ desde este script hermano.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend"))
+from corrector import evaluar_respuesta  # noqa: E402
+from llama_client import generar_respuesta  # noqa: E402
+from personalidad import construir_personalidad  # noqa: E402
+from workers import (  # noqa: E402
+    TEMAS_CATALOGO,
+    comentar_resultado,
+    obtener_preguntas_por_tema,
+    reaccionar_libre,
+    responder,
+    responder_busqueda_web,
+    resolver_tema,
+)
 
-
-# ─── Cliente RAG (antes embeddings.py) ───────────────────────
-def recuperar_contexto(mensaje_usuario, n_results=2):
-    resp = requests.post(
-        f"{EMBED_SERVER_HOST}/pregunta",
-        json={"query": mensaje_usuario, "n_results": n_results},
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return "\n".join(p["pregunta"] for p in resp.json()["preguntas"])
-
-
-# ─── Cliente del modelo de chat (antes llama_chat.py) ────────
-def generar_respuesta(mensajes, temperature=0.3, max_tokens=200):
-    resp = requests.post(
-        f"{CHAT_SERVER_HOST}/v1/chat/completions",
-        json={
-            "messages": mensajes,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        },
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+# El modelo puede colar un emoji o una comilla tipográfica que la consola no
+# sabe representar, y eso tiraría UnicodeEncodeError a mitad del streaming. Con
+# 'replace' sale un '?' y el chat sigue. No se fuerza ningún encoding: el de por
+# defecto ya coincide con el de la consola.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
 
 
-# ─── Personalidad Big Five (OCEAN) ───────────────────────────
-BIG_FIVE_TRAITS = [
-    ("Extraversion", "extroverted", "introverted"),
-    ("Agreeableness", "agreeable", "antagonistic"),
-    ("Conscientiousness", "conscientious", "unconscientious"),
-    ("Neuroticism", "neurotic", "emotionally stable"),
-    ("Openness", "open to experience", "closed to experience"),
-]
+RUTAS = ["TRIVIA", "BUSQUEDA_WEB", "CHAT_LIBRE"]
 
 
-def _quitar_pregunta_final(texto):
-    """Si la respuesta cierra con una pregunta, se la recorta."""
-    texto = texto.strip()
-    if not texto.endswith("?"):
-        return texto
-    idx = texto.rfind("¿")
-    return texto[:idx].strip() if idx > 0 else texto
-
-
-def construir_personalidad():
-    print("Configura la personalidad del asistente (modelo Big Five / OCEAN).")
-    print("Para cada rasgo, escribe 'alto' o 'bajo' (Enter = alto).\n")
-    rasgos = []
-    for nombre, alto, bajo in BIG_FIVE_TRAITS:
-        resp = input(f"{nombre} [alto/bajo]: ").strip().lower()
-        rasgos.append(bajo if resp.startswith("b") else alto)
-    rasgos[-1] = "and " + rasgos[-1]
-    return ", ".join(rasgos)
-
-
-historial = []  # memoria de la conversación
-
-
-def responder(mensaje_usuario, persona_str, n_results=2):
-    contexto = recuperar_contexto(mensaje_usuario, n_results=n_results)
-    historial.append({"role": "user", "content": mensaje_usuario})
-
+def enrutar_mensaje(mensaje_usuario):
     mensajes = [
-        {
-            "role": "system",
-            "content": (
-                "# IDENTIDAD\n"
-                f"Eres un chatbot con la personalidad de {persona_str}. Conversas en español "
-                "de forma natural y cercana, como una persona real, no como un asistente "
-                "genérico. Mantienes esta identidad siempre, incluso en saludos o mensajes "
-                "cortos.\n\n"
-
-                "# CONVERSACIÓN\n"
-                f"- Mantén los rasgos de {persona_str} de forma consistente.\n"
-                "- Conversa de forma natural, directa y espontánea.\n"
-                "- No contradigas ni corrijas al usuario; si da una opinión, continúa desde "
-                "esa perspectiva.\n"
-                "- No inventes información para rellenar la conversación.\n"
-                "- En saludos o mensajes vagos ('hola', 'qué tal'), arranca con algo concreto "
-                "tomado del CONTEXTO, nunca con una respuesta genérica.\n\n"
-
-                "# ESTILO\n"
-                "- Máximo 60 palabras. Conciso y con información concreta.\n"
-                "- No repitas la pregunta del usuario.\n"
-                "- Termina siempre con un punto, nunca con una pregunta ('¿qué opinas?', "
-                "'¿verdad?', '¿en qué puedo ayudarte?').\n\n"
-
-                "# NO USES (ni sus variantes)\n"
-                "- Identidad de IA: 'como modelo de lenguaje', 'como IA', 'soy un asistente'.\n"
-                "- Empatía prefabricada: 'entiendo', 'comprendo', 'lamento'.\n"
-                "- Frases de asistente: 'estoy aquí para ayudarte', 'puedo ayudarte', 'no "
-                "dudes en preguntar', 'con gusto'.\n"
-                "- Disculpas: 'lo siento', 'perdón', 'mis disculpas'.\n"
-                "- Validaciones: 'tienes razón', 'buena pregunta'.\n"
-                "- Muletillas: 'en resumen', 'básicamente', 'por otro lado', 'en general'.\n"
-                "- Entusiasmo repetido: 'me encanta', 'me apasiona', 'estoy emocionado'.\n\n"
-
-                "# PRIORIDAD (si algo choca)\n"
-                "personalidad → naturalidad → contexto → concisión → estilo\n\n"
-
-                f"# CONTEXTO\n{contexto}"
-            ),
-        },
-        *historial,
+        {"role": "system", "content": (
+            "Eres un router. Clasifica el mensaje del usuario en UNA de estas rutas:\n"
+            "- TRIVIA: quiere jugar, que le hagan preguntas, trivia, matemática, "
+            "chistes, o cualquier minijuego.\n"
+            "- BUSQUEDA_WEB: pregunta algo actual o reciente que no se puede saber "
+            "de memoria (noticias, el clima, quién ganó algo hace poco, la fecha de hoy).\n"
+            "- CHAT_LIBRE: charla general o cualquier otra pregunta que no sea ninguna "
+            "de las anteriores.\n"
+            "Responde EXACTAMENTE con una palabra: TRIVIA, BUSQUEDA_WEB o CHAT_LIBRE."
+        )},
+        {"role": "user", "content": mensaje_usuario},
     ]
+    # temperature=0: es clasificación, no charla — no queremos variación entre corridas.
+    ruta = generar_respuesta(mensajes, temperature=0, max_tokens=10).strip().upper()
+    return ruta if ruta in RUTAS else "CHAT_LIBRE"
 
-    texto = _quitar_pregunta_final(generar_respuesta(mensajes))
-    historial.append({"role": "assistant", "content": texto})
-    return texto
+
+PREGUNTAS_POR_TANDA = 5
+
+
+def _preguntar_siguiente(estado):
+    """Saca la siguiente pregunta de la cola de la tanda actual y la imprime
+    tal cual viene del dataset, sin pasarla por el modelo (si la reformulara,
+    la respuesta_esperada dejaría de servir para corregir). Devuelve False si
+    la cola ya estaba vacía (se acabó la tanda)."""
+    if not estado["cola_preguntas"]:
+        return False
+    actual = estado["cola_preguntas"].pop(0)
+    estado["pregunta_pendiente"] = actual
+    print(f"Asistente [{actual['cara']}]: {actual['pregunta']}\n")
+    return True
+
+
+def _iniciar_tanda(tema, estado):
+    """Pide de una sola vez una tanda de PREGUNTAS_POR_TANDA preguntas de un
+    tema ya elegido (un solo request al backend) y arranca con la primera;
+    las demás quedan en cola_preguntas para encadenarlas sin volver a pasar
+    por el menú de temas entre una y otra."""
+    preguntas = obtener_preguntas_por_tema(tema, estado["ya_usados"], cantidad=PREGUNTAS_POR_TANDA)
+    if not preguntas:
+        print(f"Asistente: No quedan preguntas de {tema}.\n")
+        return
+    estado["ya_usados"].update(p["id"] for p in preguntas)
+    estado["cola_preguntas"] = preguntas
+    _preguntar_siguiente(estado)
+
+
+def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
+    """Tres estados posibles en modo trivia, en este orden de prioridad:
+    1) se le mostraron opciones y este mensaje es la elección,
+    2) hay una pregunta pendiente y este mensaje es la respuesta a corregir,
+    3) recién entra a trivia: se muestran 5 opciones al azar del catálogo
+       real para que elija, en vez de que el modelo le adivine el tema al
+       primer mensaje."""
+    if estado["esperando_tema"]:
+        estado["esperando_tema"] = False
+        tema = resolver_tema(mensaje_usuario)
+        print(f"Asistente: Vamos con {tema}. Van {PREGUNTAS_POR_TANDA} preguntas seguidas.")
+        _iniciar_tanda(tema, estado)
+        return
+
+    pendiente = estado["pregunta_pendiente"]
+    if pendiente is not None:
+        estado["pregunta_pendiente"] = None
+        print("Asistente: ", end="", flush=True)
+        if pendiente["respuesta_esperada"]:
+            estado["total"] += 1
+            acerto = evaluar_respuesta(pendiente["pregunta"], pendiente["respuesta_esperada"],
+                                        mensaje_usuario)
+            estado["aciertos"] += acerto
+            comentar_resultado(pendiente["pregunta"], pendiente["respuesta_esperada"],
+                               mensaje_usuario, acerto, persona_str, on_token=on_token)
+        else:
+            # Temas como Chistes o Reconocimiento Musical no tienen una
+            # respuesta correcta que corregir: solo se reacciona.
+            reaccionar_libre(pendiente["pregunta"], mensaje_usuario, persona_str, on_token=on_token)
+        print("\n")
+
+        # Sigue encadenando la tanda; recién cuando se acaba se vuelve a
+        # preguntar qué hacer (el Router igual reclasifica el próximo mensaje,
+        # pero preguntarlo explícito evita que el usuario se quede sin saber
+        # qué esperar después de la última pregunta).
+        if not _preguntar_siguiente(estado):
+            print("Asistente: Esas eran las 5. ¿Seguimos con más trivia, "
+                  "buscamos algo en la web, o prefieres charlar?\n")
+        return
+
+    opciones = ", ".join(random.sample(TEMAS_CATALOGO, 5))
+    estado["esperando_tema"] = True
+    print(f"Asistente: Puedes elegir entre: {opciones}.\n")
+
+
+def manejar_busqueda_web(mensaje_usuario, persona_str, on_token):
+    print("Asistente: ", end="", flush=True)
+    responder_busqueda_web(mensaje_usuario, persona_str, on_token=on_token)
+    print("\n")
+
+
+def manejar_chat_libre(mensaje_usuario, persona_str, on_token):
+    print("Asistente: ", end="", flush=True)
+    responder(mensaje_usuario, persona_str, on_token=on_token)
+    print("\n")
 
 
 def main():
+    print("Asistente: Hola, mi nombre es Ereberus, ¿cuál es tu nombre?")
+    nombre = input("Tú: ").strip() or "amigo"
+    print(f"Asistente: Mucho gusto en conocerte, {nombre}.")
+    print("Asistente: Puedo hacerte trivia, buscarte algo de actualidad, o simplemente "
+          "conversar — voy cambiando de modo según lo que me pidas. Escribe 'salir' "
+          "para terminar.\n")
+
     persona_str = construir_personalidad()
-    print(f"\nPersonalidad del asistente: {persona_str}\n")
-    print("Chat interactivo — escribe 'salir' para terminar.\n")
+    imprimir = lambda t: print(t, end="", flush=True)
+
+    # pregunta_pendiente: mientras haya una, el próximo mensaje es la respuesta
+    # a corregir. esperando_tema: mientras esté activo, el próximo mensaje es
+    # la elección de una de las 5 opciones mostradas. cola_preguntas: el resto
+    # de la tanda actual, para encadenarlas sin volver al menú de temas. En
+    # los tres casos no se pasa por el Router — ya se sabe a qué worker va.
+    estado = {
+        "pregunta_pendiente": None, "esperando_tema": False,
+        "cola_preguntas": [], "ya_usados": set(), "aciertos": 0, "total": 0,
+    }
+
     while True:
         entrada = input("Tú: ").strip()
         if entrada.lower() in ("salir", "exit", "quit"):
-            print("Asistente: ¡Hasta luego!")
             break
         if not entrada:
             continue
-        print(f"Asistente: {responder(entrada, persona_str)}\n")
+
+        if estado["pregunta_pendiente"] is not None or estado["esperando_tema"]:
+            manejar_trivia(entrada, estado, persona_str, imprimir)
+            continue
+
+        ruta = enrutar_mensaje(entrada)
+        if ruta == "TRIVIA":
+            manejar_trivia(entrada, estado, persona_str, imprimir)
+        elif ruta == "BUSQUEDA_WEB":
+            manejar_busqueda_web(entrada, persona_str, imprimir)
+        else:
+            manejar_chat_libre(entrada, persona_str, imprimir)
+
+    if estado["total"]:
+        print(f"\nAsistente: Terminamos. Acertaste {estado['aciertos']} de {estado['total']}.")
+    print("Asistente: ¡Hasta luego!")
 
 
 if __name__ == "__main__":

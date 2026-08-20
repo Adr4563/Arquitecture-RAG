@@ -1,4 +1,2 @@
-flask
-llama-cpp-python
-chromadb
 requests
+httpx
