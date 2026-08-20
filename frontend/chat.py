@@ -17,6 +17,7 @@ Escribe 'salir' para terminar.
 import os
 import random
 import sys
+import time
 
 import display  # frontend/display.py: carita en la LCD conectada a esta Raspberry Pi
 
@@ -66,6 +67,7 @@ def enrutar_mensaje(mensaje_usuario):
 
 
 PREGUNTAS_POR_TANDA = 5
+PAUSA_CAMBIO_CARA = 2  # segundos en 'content' antes de pasar a la cara que sigue (habla o reacción)
 
 
 def _preguntar_siguiente(estado):
@@ -126,6 +128,10 @@ def manejar_trivia(mensaje_usuario, estado, persona_str, on_token):
             # El corrector decide la cara (happy si acertó, sad/angry si no) —
             # se muestra ANTES de la reacción hablada, no "speaking": acá lo
             # que importa comunicar primero es el veredicto, no que está hablando.
+            # Una pausa breve en 'content' antes de saltar a la emoción: mostrarla
+            # de un tirón se siente demasiado instantáneo/robótico para una reacción.
+            display.mostrar_cara("content")
+            time.sleep(PAUSA_CAMBIO_CARA)
             display.mostrar_cara(elegir_cara(acerto))
             comentar_resultado(pendiente["pregunta"], pendiente["respuesta_esperada"],
                                mensaje_usuario, acerto, persona_str, on_token=on_token)
@@ -169,7 +175,9 @@ def manejar_chat_libre(mensaje_usuario, persona_str, on_token):
 
 
 def main():
-    display.mostrar_cara("speaking")  # la IA arranca la conversación: está "hablando"
+    display.mostrar_cara("content")  # arranca en reposo...
+    time.sleep(PAUSA_CAMBIO_CARA)
+    display.mostrar_cara("speaking")  # ...y recién ahora la IA "habla" (saluda, por defecto)
     print("Asistente: Hola, mi nombre es Ereberus, ¿cuál es tu nombre?")
     nombre = input("Tú: ").strip() or "amigo"
     print(f"Asistente: Mucho gusto en conocerte, {nombre}.")
