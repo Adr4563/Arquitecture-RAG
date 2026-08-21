@@ -9,12 +9,20 @@ con los servidores.
 """
 
 import json
+import os
 
 import requests
 
 # ─── Servidores ──────────────────────────────────────────────
-EMBED_SERVER_HOST = "http://localhost:8081"  # embed_server.py (embeddings + ChromaDB)
-CHAT_SERVER_HOST = "http://localhost:11434"  # Ollama (API compatible con OpenAI)
+# Backend (Ollama + embed_server.py) y frontend (chat.py) corren en máquinas
+# distintas en la misma LAN: el backend queda en la PC, chat.py corre en el
+# Raspberry Pi. Por default apuntan a localhost (para probar todo en una sola
+# máquina); en el Raspberry Pi hay que exportar estas dos variables de entorno
+# con la IP de la PC antes de correr chat.py, ej.:
+#   export EMBED_SERVER_HOST=http://192.168.1.44:8081
+#   export CHAT_SERVER_HOST=http://192.168.1.44:11434
+EMBED_SERVER_HOST = os.environ.get("EMBED_SERVER_HOST", "http://localhost:8081")
+CHAT_SERVER_HOST = os.environ.get("CHAT_SERVER_HOST", "http://localhost:11434")
 CHAT_MODEL = "llama3.2:3b-q4s"  # nombre del modelo en `ollama list` — genera las respuestas reales
 # (no usar la variante -fp16: corre 100% en CPU sin VRAM y es extremadamente lenta;
 # -q4s está cuantizado y es viable en CPU)
