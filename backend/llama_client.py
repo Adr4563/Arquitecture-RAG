@@ -15,7 +15,15 @@ import requests
 # ─── Servidores ──────────────────────────────────────────────
 EMBED_SERVER_HOST = "http://localhost:8081"  # embed_server.py (embeddings + ChromaDB)
 CHAT_SERVER_HOST = "http://localhost:11434"  # Ollama (API compatible con OpenAI)
-CHAT_MODEL = "llama3.2:3b"  # nombre del modelo en `ollama list`
+CHAT_MODEL = "llama3.2:3b-q4s"  # nombre del modelo en `ollama list` — genera las respuestas reales
+# (no usar la variante -fp16: corre 100% en CPU sin VRAM y es extremadamente lenta;
+# -q4s está cuantizado y es viable en CPU)
+
+# El router no necesita el modelo grande: es una clasificación de 3 etiquetas,
+# no generación de texto. qwen2.5:0.5b con few-shot + salida JSON forzada
+# clasifica igual de bien que llama3.2:1b en este caso y corre ~3x más rápido
+# (benchmark en rag-model-bench/: 5/5 aciertos, ~760ms promedio vs ~2.6s).
+ROUTER_MODEL = "qwen2.5:0.5b"
 
 
 SIN_CONTEXTO = None  # sentinel: no hubo resultados relevantes en la base de datos
@@ -75,3 +83,65 @@ def generar_respuesta(mensajes, temperature=0.3, max_tokens=100, on_token=None):
             if on_token:
                 on_token(delta)
     return "".join(texto)
+
+
+RUTAS_VALIDAS = {"TRIVIA", "BUSQUEDA_WEB", "CHAT_LIBRE"}
+
+# Few-shot: sin ejemplos, qwen2.5:0.5b clasificaba con ~50-60% de acierto
+# (confundía preguntas de precio/contrato con otras rutas). Con estos 6
+# ejemplos sube a 5/5 en el set de prueba — ver rag-model-bench/bench.mjs.
+_ROUTER_SYSTEM_PROMPT = """Eres un router. Clasifica el mensaje del usuario en UNA de estas rutas y responde SOLO con un JSON de la forma {"ruta": "..."}.
+- TRIVIA: quiere jugar, que le hagan preguntas, trivia, matemática, chistes, o cualquier minijuego.
+- BUSQUEDA_WEB: pregunta algo actual o reciente que no se puede saber de memoria (noticias, el clima, quién ganó algo hace poco, la fecha de hoy).
+- CHAT_LIBRE: charla general o cualquier otra pregunta que no sea ninguna de las anteriores.
+No agregues explicación ni texto fuera del JSON.
+
+Ejemplos:
+Usuario: "quiero jugar trivia"
+{"ruta": "TRIVIA"}
+Usuario: "hazme una pregunta de matematica"
+{"ruta": "TRIVIA"}
+Usuario: "que clima hace hoy en lima"
+{"ruta": "BUSQUEDA_WEB"}
+Usuario: "quien gano el partido de anoche"
+{"ruta": "BUSQUEDA_WEB"}
+Usuario: "hola como estas"
+{"ruta": "CHAT_LIBRE"}
+Usuario: "cuentame un chiste"
+{"ruta": "CHAT_LIBRE"}"""
+
+
+def enrutar(mensaje_usuario):
+    """Clasifica el mensaje en TRIVIA / BUSQUEDA_WEB / CHAT_LIBRE con el modelo
+    liviano del router (ROUTER_MODEL), no con el modelo grande de generación.
+    Usa /api/chat (nativo de Ollama, no el compatible con OpenAI) porque es el
+    que soporta format="json" para forzar una salida parseable sin post-procesar
+    texto libre. Sin streaming: la respuesta son unos pocos tokens, no vale la
+    pena el streaming para esto.
+
+    Devuelve "" si el modelo no respondió una ruta válida (el caller decide el
+    fallback, hoy CHAT_LIBRE) — nunca lanza por una clasificación rara, solo
+    por un problema real de red/servidor.
+    """
+    mensajes = [
+        {"role": "system", "content": _ROUTER_SYSTEM_PROMPT},
+        {"role": "user", "content": mensaje_usuario},
+    ]
+    resp = requests.post(
+        f"{CHAT_SERVER_HOST}/api/chat",
+        json={
+            "model": ROUTER_MODEL,
+            "messages": mensajes,
+            "format": "json",
+            "stream": False,
+            "options": {"temperature": 0, "num_predict": 20},
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    contenido = resp.json()["message"]["content"]
+    try:
+        ruta = json.loads(contenido).get("ruta", "").strip().upper()
+    except (json.JSONDecodeError, AttributeError):
+        ruta = ""
+    return ruta if ruta in RUTAS_VALIDAS else ""

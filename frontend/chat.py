@@ -25,7 +25,7 @@ import display  # frontend/display.py: carita en la LCD conectada a esta Raspber
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend"))
 from cara_agente import elegir_cara as elegir_cara_por_calidad  # noqa: E402
 from corrector import elegir_cara, evaluar_respuesta  # noqa: E402
-from llama_client import generar_respuesta  # noqa: E402
+from llama_client import enrutar, generar_respuesta  # noqa: E402
 from personalidad import construir_personalidad  # noqa: E402
 from workers import (  # noqa: E402
     TEMAS_CATALOGO,
@@ -49,21 +49,9 @@ RUTAS = ["TRIVIA", "BUSQUEDA_WEB", "CHAT_LIBRE"]
 
 
 def enrutar_mensaje(mensaje_usuario):
-    mensajes = [
-        {"role": "system", "content": (
-            "Eres un router. Clasifica el mensaje del usuario en UNA de estas rutas:\n"
-            "- TRIVIA: quiere jugar, que le hagan preguntas, trivia, matemática, "
-            "chistes, o cualquier minijuego.\n"
-            "- BUSQUEDA_WEB: pregunta algo actual o reciente que no se puede saber "
-            "de memoria (noticias, el clima, quién ganó algo hace poco, la fecha de hoy).\n"
-            "- CHAT_LIBRE: charla general o cualquier otra pregunta que no sea ninguna "
-            "de las anteriores.\n"
-            "Responde EXACTAMENTE con una palabra: TRIVIA, BUSQUEDA_WEB o CHAT_LIBRE."
-        )},
-        {"role": "user", "content": mensaje_usuario},
-    ]
-    # temperature=0: es clasificación, no charla — no queremos variación entre corridas.
-    ruta = generar_respuesta(mensajes, temperature=0, max_tokens=10).strip().upper()
+    # El prompt, el few-shot y el modelo liviano (qwen2.5:0.5b) viven en
+    # llama_client.enrutar() — acá solo se decide el fallback si no clasificó.
+    ruta = enrutar(mensaje_usuario)
     return ruta if ruta in RUTAS else "CHAT_LIBRE"
 
 
